@@ -4,6 +4,7 @@ import * as Parser from "./src/grammar/TSqlParser";
 import * as Lexer from "./src/grammar/TSqlLexer";
 import {CaseInsensitiveInputStream} from "./src/CaseInsensitiveInputStream";
 import { Listener, hash , prc, fct} from './Listener';
+import { Visitor } from './Visitor';
 
 
 // Create the lexer and parser
@@ -27,11 +28,15 @@ let tokenStream = new CommonTokenStream(lexer)                        ;
 let parser      = new Parser.TSqlParser(tokenStream)                  ;
 parser.buildParseTree = true;
 
-let lst = new Listener(parser);
+//let lst = new Listener(parser);
 // Parse the input, where `compilationUnit` is whatever entry point you defined
 
-ParseTreeWalker.DEFAULT.walk(lst as any, parser.tsql_file());
+//ParseTreeWalker.DEFAULT.walk(lst as any, parser.tsql_file());
+let visitor = new Visitor(parser);
+parser.tsql_file().accept(visitor);
 
+
+/*
 for(let k in hash) {
   let str = `
 -- Found table ${hash[k].schema}.${hash[k].table} ${hash[k].alias ? " with alias " + hash[k].alias : ""}
@@ -55,3 +60,4 @@ EXEC tSQLt.FakeFunction '${k}';`
 
 //EXEC tSQLt.FakeFunction 'SalesApp.ComputeCommission', 'SalesAppTests.Fake_ComputeCommission';
 //console.log(result);
+*/
