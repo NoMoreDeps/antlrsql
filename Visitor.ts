@@ -7,12 +7,63 @@ let hash: any = {}
 let fct:any = {}
 let prc:any = {};
 
+let TABLES = [];
+let STMTS  = [];
+
+function format(text: string, size: number, center: boolean) {
+  text = text.trim();
+  let d = size - text.length;
+  let r, l = 0;
+
+  if (d % 2 !== 0) {
+    r = (d-1) / 2;
+    l = r+1;  
+  } else {
+    r = l = d / 2;
+  }
+
+  var lstr = "";
+  var rstr = "";
+  for(let i=0; i<l;i++) lstr += " "; 
+  for(let i=0; i<r;i++) rstr += " ";
+  
+  if (center) {
+    return lstr + text + rstr;
+  }
+
+  return text + lstr + rstr;
+}
+
+export {
+  TABLES,
+  STMTS
+}
+
+function log(...args: any[]) {
+  //console.log(...args);
+}
+
+function checked(context: any, rule: any) : boolean {
+  if (!rule) {
+    return false;
+  }
+
+  if (typeof rule === "function") {
+    if (!rule.call(context)) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 export class Visitor implements TSqlParserVisitor<any> {
 
   visit(tree: ParseTree) {
     const t = tree as P.Tsql_fileContext;
-    console.log(t["prototype"])
+    t.batch().forEach( batchContext => {
+      this.visitBatch(batchContext);
+    });
   }
 
   visitChildren(node: RuleNode) {
@@ -54,23 +105,43 @@ export class Visitor implements TSqlParserVisitor<any> {
   visitGETDATE?: (ctx: P.GETDATEContext) => any;
   
   visitTsql_file(ctx: P.Tsql_fileContext) {
-    console.log("starting point");
-    console.log(this.parser.ruleNames[ctx.ruleIndex]);
-    ctx.batch().forEach(b => this.visitBatch(b));
+    ctx.batch().forEach( batchContext => {
+      this.visitBatch(batchContext);
+    });
   }
 
   visitBatch(ctx: P.BatchContext) {
-    console.log("batch")
-    console.log(this.parser.ruleNames[ctx.ruleIndex]);
-    ctx.children.forEach( c => {
-      console.log(this.parser.ruleNames[c["ruleIndex"]]);
-    })
+    //ctx.execute_body()
+    this.visitSql_clauses(ctx.sql_clauses())
   }
 
-  visitSql_clauses?: (ctx: P.Sql_clausesContext) => any;
-  visitSql_clause?: (ctx: P.Sql_clauseContext) => any;
-  visitDml_clause?: (ctx: P.Dml_clauseContext) => any;
-  visitDdl_clause?: (ctx: P.Ddl_clauseContext) => any;
+  visitSql_clauses(ctx: P.Sql_clausesContext) {
+    ctx.sql_clause().forEach(sqlClauseContext => {
+      this.visitSql_clause(sqlClauseContext);
+    });
+  }
+
+  visitSql_clause(ctx: P.Sql_clauseContext) {
+    checked(ctx, ctx.ddl_clause) 
+      && this.visitDdl_clause(ctx.ddl_clause());
+
+    checked(ctx, ctx.dml_clause) 
+      && this.visitDml_clause(ctx.dml_clause());
+  }
+
+  visitDml_clause(ctx: P.Dml_clauseContext) {
+    checked(ctx, ctx.insert_statement)
+      && this.visitInsert_statement(ctx.insert_statement());
+
+    checked(ctx, ctx.select_statement)
+      && this.visitSelect_statement(ctx.select_statement());
+  }
+
+  visitDdl_clause(ctx: P.Ddl_clauseContext) {
+    checked(ctx,  ctx.create_table) 
+      && this.visitCreate_table(ctx.create_table());
+  }
+
   visitBackup_statement?: (ctx: P.Backup_statementContext) => any;
   visitCfl_statement?: (ctx: P.Cfl_statementContext) => any;
   visitBlock_statement?: (ctx: P.Block_statementContext) => any;
@@ -284,10 +355,36 @@ export class Visitor implements TSqlParserVisitor<any> {
   visitMerge_not_matched?: (ctx: P.Merge_not_matchedContext) => any;
   visitDelete_statement?: (ctx: P.Delete_statementContext) => any;
   visitDelete_statement_from?: (ctx: P.Delete_statement_fromContext) => any;
-  visitInsert_statement?: (ctx: P.Insert_statementContext) => any;
-  visitInsert_statement_value?: (ctx: P.Insert_statement_valueContext) => any;
+  
+  visitInsert_statement(ctx: P.Insert_statementContext) {
+    let insertStm = {
+      tableName : this.visitDdl_object(ctx.ddl_object())             ,
+      columns   : this.visitColumn_name_list(ctx.column_name_list()) ,
+      values    : this.visitInsert_statement_value(ctx.insert_statement_value())
+    };
+
+    STMTS.push(insertStm);
+  }
+
+  visitInsert_statement_value(ctx: P.Insert_statement_valueContext) {
+    return this.visitTable_value_constructor(ctx.table_value_constructor());
+  }
+
   visitReceive_statement?: (ctx: P.Receive_statementContext) => any;
-  visitSelect_statement?: (ctx: P.Select_statementContext) => any;
+  visitSelect_statement(ctx: P.Select_statementContext) {
+    let insert = STMTS[0];
+    let sep = "";
+    for(let i=0;i<66;i++) {
+      sep += "-"
+    }
+    console.log(`TABLE : ${insert.tableName.table}`);
+    console.log(sep)
+    console.log("|", insert.columns.map(e => format(e, 10, true)).join(" | "), "|");
+    console.log(sep)
+    insert.values.forEach(v => {
+      console.log("|", v.map(e => format(e, 10, false)).join(" | "), "|");
+    })
+  }
   visitTime?: (ctx: P.TimeContext) => any;
   visitUpdate_statement?: (ctx: P.Update_statementContext) => any;
   visitOutput_clause?: (ctx: P.Output_clauseContext) => any;
@@ -311,7 +408,18 @@ export class Visitor implements TSqlParserVisitor<any> {
   visitFunction_option?: (ctx: P.Function_optionContext) => any;
   visitCreate_statistics?: (ctx: P.Create_statisticsContext) => any;
   visitUpdate_statistics?: (ctx: P.Update_statisticsContext) => any;
-  visitCreate_table?: (ctx: P.Create_tableContext) => any;
+  
+  visitCreate_table(ctx: P.Create_tableContext) {
+    log(`enterCreate table`);
+    const tableName = this.visitTable_name(ctx.table_name());
+    const columnDef = this.visitColumn_def_table_constraints(ctx.column_def_table_constraints());
+
+    TABLES.push({
+      tableName,
+      columnDef
+    });
+  }
+  
   visitTable_options?: (ctx: P.Table_optionsContext) => any;
   visitCreate_view?: (ctx: P.Create_viewContext) => any;
   visitView_attribute?: (ctx: P.View_attributeContext) => any;
@@ -406,9 +514,33 @@ export class Visitor implements TSqlParserVisitor<any> {
   visitTable_type_definition?: (ctx: P.Table_type_definitionContext) => any;
   visitXml_type_definition?: (ctx: P.Xml_type_definitionContext) => any;
   visitXml_schema_collection?: (ctx: P.Xml_schema_collectionContext) => any;
-  visitColumn_def_table_constraints?: (ctx: P.Column_def_table_constraintsContext) => any;
-  visitColumn_def_table_constraint?: (ctx: P.Column_def_table_constraintContext) => any;
-  visitColumn_definition?: (ctx: P.Column_definitionContext) => any;
+
+  visitColumn_def_table_constraints(ctx: P.Column_def_table_constraintsContext) {
+    if (!ctx) return;
+    let tableConstraints = [];
+
+    ctx.column_def_table_constraint().forEach( context => {
+      tableConstraints.push(this.visitColumn_def_table_constraint(context));
+    });
+
+    return tableConstraints;
+  };
+
+  visitColumn_def_table_constraint(ctx: P.Column_def_table_constraintContext) {
+    const columnDef =  this.visitColumn_definition(ctx.column_definition());
+    return columnDef;
+  }
+
+  visitColumn_definition(ctx: P.Column_definitionContext) {
+    const id = this.visitId(ctx.id()[0]);
+    const dataType = this.visitData_type(ctx.data_type());
+
+    return {
+      id,
+      dataType
+    };
+  }
+
   visitMaterialized_column_definition?: (ctx: P.Materialized_column_definitionContext) => any;
   visitColumn_constraint?: (ctx: P.Column_constraintContext) => any;
   visitTable_constraint?: (ctx: P.Table_constraintContext) => any;
@@ -422,8 +554,23 @@ export class Visitor implements TSqlParserVisitor<any> {
   visitFetch_cursor?: (ctx: P.Fetch_cursorContext) => any;
   visitSet_special?: (ctx: P.Set_specialContext) => any;
   visitConstant_LOCAL_ID?: (ctx: P.Constant_LOCAL_IDContext) => any;
-  visitExpression?: (ctx: P.ExpressionContext) => any;
-  visitPrimitive_expression?: (ctx: P.Primitive_expressionContext) => any;
+  
+  visitExpression (ctx: P.ExpressionContext) {    
+    if (checked(ctx, ctx.primitive_expression)) {
+      return this.visitPrimitive_expression(ctx.primitive_expression());
+    }
+  }
+
+  visitPrimitive_expression(ctx: P.Primitive_expressionContext) {
+    let result = "";
+
+    if (checked(ctx, ctx.constant)) {
+      result = ctx.constant().text;
+    }
+
+    return result;
+  }
+
   visitCase_expression?: (ctx: P.Case_expressionContext) => any;
   visitUnary_operator_expression?: (ctx: P.Unary_operator_expressionContext) => any;
   visitBracket_expression?: (ctx: P.Bracket_expressionContext) => any;
@@ -492,8 +639,27 @@ export class Visitor implements TSqlParserVisitor<any> {
   visitIndex_value?: (ctx: P.Index_valueContext) => any;
   visitColumn_alias_list?: (ctx: P.Column_alias_listContext) => any;
   visitColumn_alias?: (ctx: P.Column_aliasContext) => any;
-  visitTable_value_constructor?: (ctx: P.Table_value_constructorContext) => any;
-  visitExpression_list?: (ctx: P.Expression_listContext) => any;
+  
+  visitTable_value_constructor(ctx: P.Table_value_constructorContext) {
+    let lines = [];
+
+    ctx.expression_list().forEach( expList => {
+     lines.push(this.visitExpression_list(expList));
+    });
+
+    return lines;
+  }
+
+  visitExpression_list(ctx: P.Expression_listContext) {
+    let exps = [];
+
+    ctx.expression().forEach( exp => {
+      exps.push(this.visitExpression(exp));
+    });
+
+    return exps;
+  }
+
   visitRanking_windowed_function?: (ctx: P.Ranking_windowed_functionContext) => any;
   visitAggregate_windowed_function?: (ctx: P.Aggregate_windowed_functionContext) => any;
   visitAnalytic_windowed_function?: (ctx: P.Analytic_windowed_functionContext) => any;
@@ -512,14 +678,52 @@ export class Visitor implements TSqlParserVisitor<any> {
   visitEntity_name?: (ctx: P.Entity_nameContext) => any;
   visitEntity_name_for_azure_dw?: (ctx: P.Entity_name_for_azure_dwContext) => any;
   visitEntity_name_for_parallel_dw?: (ctx: P.Entity_name_for_parallel_dwContext) => any;
-  visitFull_table_name?: (ctx: P.Full_table_nameContext) => any;
-  visitTable_name?: (ctx: P.Table_nameContext) => any;
+  
+  visitFull_table_name(ctx: P.Full_table_nameContext) {
+    log("visitFull_table_name")
+    const tableDef =  {
+      server   : this.visitId(ctx._server)   ,
+      database : this.visitId(ctx._database) ,
+      schema   : this.visitId(ctx._schema)   ,
+      table    : this.visitId(ctx._table)    
+    };
+
+    //console.log(tableDef);
+    return tableDef;
+  }
+
+  visitTable_name(ctx: P.Table_nameContext) {
+    log("visitTable_name")
+    const tableDef =  {
+      database : this.visitId(ctx._database) ,
+      schema   : this.visitId(ctx._schema)   ,
+      table    : this.visitId(ctx._table)    
+    };
+
+    //console.log(tableDef);
+    return tableDef;
+  }
+  
   visitSimple_name?: (ctx: P.Simple_nameContext) => any;
   visitFunc_proc_name?: (ctx: P.Func_proc_nameContext) => any;
-  visitDdl_object?: (ctx: P.Ddl_objectContext) => any;
+
+  visitDdl_object(ctx: P.Ddl_objectContext) {
+    if (checked(ctx, ctx.full_table_name)) {
+      return this.visitFull_table_name(ctx.full_table_name());
+    }
+  }
+
   visitFull_column_name?: (ctx: P.Full_column_nameContext) => any;
   visitColumn_name_list_with_order?: (ctx: P.Column_name_list_with_orderContext) => any;
-  visitColumn_name_list?: (ctx: P.Column_name_listContext) => any;
+  
+  visitColumn_name_list(ctx: P.Column_name_listContext) {
+    let ids = [];
+    ctx.id().forEach( id => {
+      ids.push(this.visitId(id));
+    });
+    return ids;
+  }
+
   visitCursor_name?: (ctx: P.Cursor_nameContext) => any;
   visitOn_off?: (ctx: P.On_offContext) => any;
   visitClustered?: (ctx: P.ClusteredContext) => any;
@@ -535,11 +739,41 @@ export class Visitor implements TSqlParserVisitor<any> {
   visitGet_conversation?: (ctx: P.Get_conversationContext) => any;
   visitQueue_id?: (ctx: P.Queue_idContext) => any;
   visitSend_conversation?: (ctx: P.Send_conversationContext) => any;
-  visitData_type?: (ctx: P.Data_typeContext) => any;
+  visitData_type(ctx: P.Data_typeContext) {
+    let type = {
+      par       : (ctx.DECIMAL()  && ctx.DECIMAL().join("")) || (ctx.MAX() && ctx.MAX().text),
+      id        : ctx.id          && this.visitId(ctx.id()) ,
+      double    : ctx.DOUBLE()    && ctx.DOUBLE().text      ,
+      precision : ctx.PRECISION() && ctx.PRECISION().text   ,
+      int       : ctx.INT()       && ctx.INT().text         ,
+      smallInt  : ctx.SMALLINT()  && ctx.SMALLINT().text    ,
+      bigint    : ctx.BIGINT()    && ctx.BIGINT().text
+    };
+    
+    log(`dataType`, type)
+    return type;
+  }
   visitDefault_value?: (ctx: P.Default_valueContext) => any;
   visitConstant?: (ctx: P.ConstantContext) => any;
   visitSign?: (ctx: P.SignContext) => any;
-  visitId?: (ctx: P.IdContext) => any;
+  visitId(ctx: P.IdContext) {
+    if (!ctx) return;
+
+    if (ctx.simple_id) {
+      log("simple_id", ctx.simple_id().text)
+      return ctx.simple_id().text;
+    }
+
+    if (ctx.DOUBLE_QUOTE_ID) {
+      log("DOUBLE_QUOTE_ID", ctx.DOUBLE_QUOTE_ID().text)
+      return ctx.DOUBLE_QUOTE_ID().text;
+    }
+
+    if (ctx.SQUARE_BRACKET_ID) {
+      log("SQUARE_BRACKET_ID", ctx.SQUARE_BRACKET_ID().text)
+      return ctx.SQUARE_BRACKET_ID().text;
+    }
+  }
   visitSimple_id?: (ctx: P.Simple_idContext) => any;
   visitComparison_operator?: (ctx: P.Comparison_operatorContext) => any;
   visitAssignment_operator?: (ctx: P.Assignment_operatorContext) => any;

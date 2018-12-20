@@ -14,18 +14,22 @@ const CaseInsensitiveInputStream_1 = require("./src/CaseInsensitiveInputStream")
 const Visitor_1 = require("./Visitor");
 // Create the lexer and parser
 let inputStream = new CaseInsensitiveInputStream_1.CaseInsensitiveInputStream(new antlr4ts_1.ANTLRInputStream(`
-  DECLARE @date DATE = '20181225';
-  DECLARE @result INT;
+CREATE TABLE Persons (
+  PersonID  INT          NULL     ,
+  LastName  VARCHAR(255) NOT NULL ,
+  FirstName VARCHAR(255) NOT NULL ,  
+  Address   VARCHAR(255)          ,
+  City      VARCHAR(255) 
+);
 
-  SELECT * FROM [dbo].[T_SOURCE] S
-    INNER JOIN [dbo].[T_JOIN] J
-      ON [dbo].[T_SOURCE].[ID] = [dbo].[T_JOIN].[ParentId]
-  ORDER BY [dbo].[T_SOURCE].[Id] ASC;
+INSERT INTO Persons 
+       (PersonID, LastName, FirstName, Address , City )
+VALUES (1       , 'DUCK'  , 'DONALD' , 'ADD 1' , 'City 1'),
+       (2       , 'MOUSE' , 'MICKEY' , 'ADD 2' , 'City 2');
 
-  EXEC [dbo].[SP_SUPER_PROC] @yesterday;
 
-  EXEC @result = [dbo].[MyFunction] @date;
-
+SELECT * FROM Persons
+  ORDER BY LastName ASC;
 
 `), true);
 let lexer = new Lexer.TSqlLexer(inputStream);
