@@ -119,6 +119,36 @@ class Visitor {
     visitCreate_database(ctx) {
         const id = this.visitId(ctx.id()[0]);
         const isPrimary = !!ctx.PRIMARY;
+        let onInterval = 0;
+        let logInterval = 0;
+        if (ctx.ON(0)) {
+            onInterval = ctx.ON(0).sourceInterval.b;
+        }
+        if (ctx.ON(1)) {
+            logInterval = ctx.ON(1).sourceInterval.b;
+        }
+        let onFiles = [];
+        let logFiles = [];
+        ctx.database_file_spec().forEach(fs => {
+            if (logInterval && fs.sourceInterval.a > logInterval) {
+                logFiles.push(fs);
+            }
+            else {
+                onFiles.push(fs);
+            }
+        });
+        const collate = this.visitId(ctx._collation_name);
+        const _with = ctx.create_database_option().map(m => m);
+        console.log(`
+      Database id : ${id}
+      isPrimary   : ${isPrimary}
+      
+      On Filestream  : ${onFiles}
+      Log Filestream : ${logFiles}
+      
+      Collate : ${collate}
+      With    : ${_with}
+    `);
     }
     visitCreate_table(ctx) {
         log(`enterCreate table`);
@@ -226,18 +256,19 @@ class Visitor {
     visitId(ctx) {
         if (!ctx)
             return;
-        if (ctx.simple_id) {
+        if (checked(ctx, ctx.simple_id)) {
             log("simple_id", ctx.simple_id().text);
             return ctx.simple_id().text;
         }
-        if (ctx.DOUBLE_QUOTE_ID) {
+        if (checked(ctx, ctx.DOUBLE_QUOTE_ID)) {
             log("DOUBLE_QUOTE_ID", ctx.DOUBLE_QUOTE_ID().text);
             return ctx.DOUBLE_QUOTE_ID().text;
         }
-        if (ctx.SQUARE_BRACKET_ID) {
+        if (checked(ctx, ctx.SQUARE_BRACKET_ID)) {
             log("SQUARE_BRACKET_ID", ctx.SQUARE_BRACKET_ID().text);
             return ctx.SQUARE_BRACKET_ID().text;
         }
+        return ctx.text;
     }
     constructor(parser) {
         this.parser = parser;

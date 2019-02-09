@@ -14,7 +14,7 @@ const CaseInsensitiveInputStream_1 = require("./src/CaseInsensitiveInputStream")
 const Visitor_1 = require("./Visitor");
 // Create the lexer and parser
 let inputStream = new CaseInsensitiveInputStream_1.CaseInsensitiveInputStream(new antlr4ts_1.ANTLRInputStream(`
-CREATE DATABASE Archive   
+CREATE DATABASE TWO_DIGIT_YEAR_CUTOFF
 ON  
 PRIMARY    
     (NAME = Arch1,  
@@ -42,7 +42,9 @@ LOG ON
     FILENAME = 'D:\SalesData\archlog2.ldf',  
     SIZE = 100MB,  
     MAXSIZE = 200,  
-    FILEGROWTH = 20) ;  
+    FILEGROWTH = 20)
+COLLATE French_CI_AI  
+WITH TRUSTWORTHY ON, DB_CHAINING ON;  
 `), true);
 let lexer = new Lexer.TSqlLexer(inputStream);
 let tokenStream = new antlr4ts_1.CommonTokenStream(lexer);
