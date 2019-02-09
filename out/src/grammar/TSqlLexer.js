@@ -6469,3 +6469,4 @@ TSqlLexer._serializedATN = Utils.join([
     TSqlLexer._serializedATNSegment16,
 ], "");
 exports.TSqlLexer = TSqlLexer;
+//# sourceMappingURL=TSqlLexer.js.map

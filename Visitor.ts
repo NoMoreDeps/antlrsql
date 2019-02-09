@@ -44,6 +44,7 @@ function log(...args: any[]) {
 }
 
 function checked(context: any, rule: any) : boolean {
+  rule
   if (!rule) {
     return false;
   }
@@ -138,6 +139,9 @@ export class Visitor implements TSqlParserVisitor<any> {
   }
 
   visitDdl_clause(ctx: P.Ddl_clauseContext) {
+    checked(ctx, ctx.create_database)
+      && this.visitCreate_database(ctx.create_database());
+
     checked(ctx,  ctx.create_table) 
       && this.visitCreate_table(ctx.create_table());
   }
@@ -390,7 +394,20 @@ export class Visitor implements TSqlParserVisitor<any> {
   visitOutput_clause?: (ctx: P.Output_clauseContext) => any;
   visitOutput_dml_list_elem?: (ctx: P.Output_dml_list_elemContext) => any;
   visitOutput_column_name?: (ctx: P.Output_column_nameContext) => any;
-  visitCreate_database?: (ctx: P.Create_databaseContext) => any;
+  
+  visitCreate_database(ctx: P.Create_databaseContext) {
+    const id = this.visitId(ctx.id()[0]);
+    const isPrimary = !!ctx.PRIMARY;
+  
+    if (ctx.ON(0)) {
+
+    }
+
+    if (ctx.ON(1)) {
+      
+    }
+  }
+
   visitCreate_index?: (ctx: P.Create_indexContext) => any;
   visitCreate_or_alter_procedure?: (ctx: P.Create_or_alter_procedureContext) => any;
   visitCreate_or_alter_trigger?: (ctx: P.Create_or_alter_triggerContext) => any;

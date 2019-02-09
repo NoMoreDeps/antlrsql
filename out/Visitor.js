@@ -86,6 +86,8 @@ class Visitor {
             && this.visitSelect_statement(ctx.select_statement());
     }
     visitDdl_clause(ctx) {
+        checked(ctx, ctx.create_database)
+            && this.visitCreate_database(ctx.create_database());
         checked(ctx, ctx.create_table)
             && this.visitCreate_table(ctx.create_table());
     }
@@ -113,6 +115,10 @@ class Visitor {
         insert.values.forEach(v => {
             console.log("|", v.map(e => format(e, 10, false)).join(" | "), "|");
         });
+    }
+    visitCreate_database(ctx) {
+        const id = this.visitId(ctx.id()[0]);
+        const isPrimary = !!ctx.PRIMARY;
     }
     visitCreate_table(ctx) {
         log(`enterCreate table`);
@@ -238,3 +244,4 @@ class Visitor {
     }
 }
 exports.Visitor = Visitor;
+//# sourceMappingURL=Visitor.js.map

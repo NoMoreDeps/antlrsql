@@ -19,24 +19,36 @@ export type FileSize = {
 }
 
 export class FileSpec {
-  name        : string;
-  filename?   : string;
-  size?       : FileSize;
-  maxSize?    : FileSize | 'UNLIMITED';
-  fileGrowth? : FileSize;
+  name        : string                 ;
+  filename?   : string                 ;
+  size?       : FileSize               ;
+  maxSize?    : FileSize | 'UNLIMITED' ;
+  fileGrowth? : FileSize               ;
 }
 
 export class Database {
-  id: string;
-  containment?        : "NONE" | "PARTIAL"           ;
-  NonTransactedAccess : "OFF" | "READ_ONLY" | "FULL" ;
-  onPrimary           : boolean                      ;
-  on                  : Array<DatabaseFileSpec>      ;
-  logOn               : Array<DatabaseFileSpec>      ;
-  collate             : string                       ;
-  with                : CreateDatabaseOption         ;
+  id                  : string                        ;
+  containment?        : "NONE" | "PARTIAL"            ;
+  NonTransactedAccess : "OFF"  | "READ_ONLY" | "FULL" ;
+  onPrimary           : boolean                       ;
+  on                  : Array<DatabaseFileSpec>       ;
+  logOn               : Array<DatabaseFileSpec>       ;
+  collate             : string                        ;
+  with                : CreateDatabaseOption          ;
 }
 
-type CreateDatabaseOption = {
+export class CreateDatabaseOption {
+  filestream              : Array<databaseFilestreamOption> ;
+  defaultLanguage         : string                          ;
+  defaultFulltextLanguage : string                          ;
+  nestedTriggers          : "OFF" | "ON"                    ;
+  transformNoiseWords     : "OFF" | "ON"                    ;
+  twoDigitYearCutoff      : number                          ;
+  dbChaining              : "OFF" | "ON"                    ;
+  trustworthy             : "OFF" | "ON"                    ;
+}
 
+export class databaseFilestreamOption {
+  nonTransactedAccess : "OFF" | "READ_ONLY" | "FULL" ;
+  directoryName       : string                       ;
 }

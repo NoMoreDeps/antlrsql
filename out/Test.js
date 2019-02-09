@@ -14,23 +14,35 @@ const CaseInsensitiveInputStream_1 = require("./src/CaseInsensitiveInputStream")
 const Visitor_1 = require("./Visitor");
 // Create the lexer and parser
 let inputStream = new CaseInsensitiveInputStream_1.CaseInsensitiveInputStream(new antlr4ts_1.ANTLRInputStream(`
-CREATE TABLE Persons (
-  PersonID  INT          NULL     ,
-  LastName  VARCHAR(255) NOT NULL ,
-  FirstName VARCHAR(255) NOT NULL ,  
-  Address   VARCHAR(255)          ,
-  City      VARCHAR(255) 
-);
-
-INSERT INTO Persons 
-       (PersonID, LastName, FirstName, Address , City )
-VALUES (1       , 'DUCK'  , 'DONALD' , 'ADD 1' , 'City 1'),
-       (2       , 'MOUSE' , 'MICKEY' , 'ADD 2' , 'City 2');
-
-
-SELECT * FROM Persons
-  ORDER BY LastName ASC;
-
+CREATE DATABASE Archive   
+ON  
+PRIMARY    
+    (NAME = Arch1,  
+    FILENAME = 'D:\SalesData\archdat1.mdf',  
+    SIZE = 100MB,  
+    MAXSIZE = 200,  
+    FILEGROWTH = 20),  
+    ( NAME = Arch2,  
+    FILENAME = 'D:\SalesData\archdat2.ndf',  
+    SIZE = 100MB,  
+    MAXSIZE = 200,  
+    FILEGROWTH = 20),  
+    ( NAME = Arch3,  
+    FILENAME = 'D:\SalesData\archdat3.ndf',  
+    SIZE = 100MB,  
+    MAXSIZE = 200,  
+    FILEGROWTH = 20)  
+LOG ON   
+   (NAME = Archlog1,  
+    FILENAME = 'D:\SalesData\archlog1.ldf',  
+    SIZE = 100MB,  
+    MAXSIZE = 200,  
+    FILEGROWTH = 20),  
+   (NAME = Archlog2,  
+    FILENAME = 'D:\SalesData\archlog2.ldf',  
+    SIZE = 100MB,  
+    MAXSIZE = 200,  
+    FILEGROWTH = 20) ;  
 `), true);
 let lexer = new Lexer.TSqlLexer(inputStream);
 let tokenStream = new antlr4ts_1.CommonTokenStream(lexer);
@@ -66,3 +78,4 @@ EXEC tSQLt.FakeFunction '${k}';`
 //EXEC tSQLt.FakeFunction 'SalesApp.ComputeCommission', 'SalesAppTests.Fake_ComputeCommission';
 //console.log(result);
 */ 
+//# sourceMappingURL=Test.js.map
