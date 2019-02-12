@@ -3368,7 +3368,6 @@ file_spec
       RR_BRACKET
     ;
 
-
 // Primitive.
 entity_name
       : (server=id '.' database=id '.'  schema=id   '.'

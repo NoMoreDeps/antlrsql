@@ -2,6 +2,7 @@ import { TSqlParser } from "./src/grammar/TSqlParser";
 import * as P from "./src/grammar/TSqlParser";
 import { TSqlParserVisitor } from "./src/grammar/TSqlParserVisitor";
 import { ParseTree, RuleNode, ErrorNode, TerminalNode } from "antlr4ts/tree";
+import { Interval } from "antlr4ts/misc/Interval";
 
 let hash: any = {}
 let fct:any = {}
@@ -9,6 +10,29 @@ let prc:any = {};
 
 let TABLES = [];
 let STMTS  = [];
+
+type IntervalType = {
+  sourceInterval: Interval
+};
+
+type HashmapBySourcePosition<T,U> = [T,U];
+
+function mapBySourcePosition<T extends IntervalType, U extends IntervalType>(leftParts: Array<T>, rightParts: Array<U>) : Array<HashmapBySourcePosition<T,U>> {
+  let result = leftParts.sort( (a,b) => {
+    return a.sourceInterval.a < b.sourceInterval.a ? 1 
+      : a.sourceInterval.a === b.sourceInterval.a ? 0 
+      : -1
+  }).map( _ => [_]) as Array<[T,U]>; // Here we reverse the test to avoid calling reverse after the sort
+
+  rightParts.forEach( _ => {
+    result.forEach( __ => {
+      if (_.sourceInterval.a > __[0].sourceInterval.a) {
+        __.push(_);
+      }
+    })
+  });
+  return result;
+}
 
 function format(text: string, size: number, center: boolean) {
   text = text.trim();
@@ -414,9 +438,9 @@ export class Visitor implements TSqlParserVisitor<any> {
 
     ctx.database_file_spec().forEach( fs => {
       if(logInterval && fs.sourceInterval.a > logInterval) {
-        logFiles.push(fs);
+        logFiles.push(this.visitDatabase_file_spec(fs));
       } else {
-        onFiles.push(fs)
+        onFiles.push(this.visitDatabase_file_spec(fs));
       }
     });
 
@@ -718,9 +742,63 @@ export class Visitor implements TSqlParserVisitor<any> {
   visitWindow_frame_following?: (ctx: P.Window_frame_followingContext) => any;
   visitCreate_database_option?: (ctx: P.Create_database_optionContext) => any;
   visitDatabase_filestream_option?: (ctx: P.Database_filestream_optionContext) => any;
-  visitDatabase_file_spec?: (ctx: P.Database_file_specContext) => any;
-  visitFile_group?: (ctx: P.File_groupContext) => any;
-  visitFile_spec?: (ctx: P.File_specContext) => any;
+  
+  visitDatabase_file_spec(ctx: P.Database_file_specContext) {
+    if(checked(ctx, ctx.file_group)) {
+      return this.visitFile_group(ctx.file_group());
+    }
+
+    if(checked(ctx, ctx.file_spec)) {
+      return this.visitFile_spec(ctx.file_spec());
+    }
+  }
+
+  visitFile_group(ctx: P.File_groupContext) {
+    const id = this.visitId(ctx.id());
+    const filestream = checked(ctx, ctx.FILESTREAM);
+    const _default = checked(ctx, ctx.DEFAULT);
+    const memoryOptimizedData = checked(ctx, ctx.MEMORY_OPTIMIZED_DATA);
+    let fileSpecs = (checked(ctx, ctx.file_spec()) 
+      && ctx.file_spec().map( _ => this.visitFile_spec(_))) 
+      || [];
+      return {
+        id,
+        filestream,
+        _default,
+        memoryOptimizedData,
+        fileSpecs
+      };
+  }
+
+  visitFile_spec(ctx: P.File_specContext) {
+    let name = "";
+    let filename = "";
+
+    if (checked(ctx, ctx.id())) {
+      name = this.visitId(ctx.id());
+    } 
+    
+    if (checked(ctx, ctx.STRING)) {
+      ctx.STRING().forEach( _ => {
+        if (_.sourceInterval.a > ctx.FILENAME().sourceInterval.b) {
+          filename = _.text;
+        } else {
+          name = _.text;
+        }
+      });
+    }
+
+    let tabSize = [];
+    
+    checked(ctx, ctx.SIZE) && (tabSize.push(ctx.SIZE()));
+    checked(ctx, ctx.MAXSIZE) && (tabSize.push(ctx.MAXSIZE()));
+    checked(ctx, ctx.FILEGROWTH) && (tabSize.push(ctx.FILEGROWTH()));
+
+    if(tabSize.length > 0) {
+
+    }
+  }
+
   visitEntity_name?: (ctx: P.Entity_nameContext) => any;
   visitEntity_name_for_azure_dw?: (ctx: P.Entity_name_for_azure_dwContext) => any;
   visitEntity_name_for_parallel_dw?: (ctx: P.Entity_name_for_parallel_dwContext) => any;
@@ -825,7 +903,20 @@ export class Visitor implements TSqlParserVisitor<any> {
   visitSimple_id?: (ctx: P.Simple_idContext) => any;
   visitComparison_operator?: (ctx: P.Comparison_operatorContext) => any;
   visitAssignment_operator?: (ctx: P.Assignment_operatorContext) => any;
-  visitFile_size?: (ctx: P.File_sizeContext) => any;
+  
+  visitFile_size(ctx: P.File_sizeContext) {
+    let unit = checked(ctx, ctx.KB) && ctx.KB().text;
+    checked(ctx, ctx.MB) && (unit = ctx.MB().text);
+    checked(ctx, ctx.GB) && (unit = ctx.GB().text);
+    checked(ctx, ctx.TB) && (unit = ctx.TB().text);
+    ctx.text.indexOf("%") > -1 && (unit = "%");
+
+    return {
+      decimal: ctx.DECIMAL().text,
+      unit
+    }
+  }
+
   private parser: TSqlParser;
 
   constructor(parser: TSqlParser) {

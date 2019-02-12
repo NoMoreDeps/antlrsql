@@ -39,7 +39,7 @@ LOG ON
     MAXSIZE = 200,  
     FILEGROWTH = 20)
 COLLATE French_CI_AI  
-WITH TRUSTWORTHY ON, DB_CHAINING ON;  
+WITH TRUSTWORTHY ON, DB_CHAINING ON;
 `), true);
 let lexer       = new Lexer.TSqlLexer(inputStream)                    ;
 let tokenStream = new CommonTokenStream(lexer)                        ;
