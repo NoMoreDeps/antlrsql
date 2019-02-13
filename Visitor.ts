@@ -25,9 +25,11 @@ function mapBySourcePosition<T extends IntervalType, U extends IntervalType>(lef
   }).map( _ => [_]) as Array<[T,U]>; // Here we reverse the test to avoid calling reverse after the sort
 
   rightParts.forEach( _ => {
+    let found = false;
     result.forEach( __ => {
-      if (_.sourceInterval.a > __[0].sourceInterval.a) {
+      if (!found && _.sourceInterval.a >= __[0].sourceInterval.b) {
         __.push(_);
+        found = true;
       }
     })
   });
@@ -46,8 +48,8 @@ function format(text: string, size: number, center: boolean) {
     r = l = d / 2;
   }
 
-  var lstr = "";
-  var rstr = "";
+  var lstr = "" ;
+  var rstr = "" ;
   for(let i=0; i<l;i++) lstr += " "; 
   for(let i=0; i<r;i++) rstr += " ";
   
@@ -795,7 +797,7 @@ export class Visitor implements TSqlParserVisitor<any> {
     checked(ctx, ctx.FILEGROWTH) && (tabSize.push(ctx.FILEGROWTH()));
 
     if(tabSize.length > 0) {
-
+      const result = mapBySourcePosition(tabSize, ctx.file_size());
     }
   }
 

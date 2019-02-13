@@ -10,6 +10,23 @@ let TABLES = [];
 exports.TABLES = TABLES;
 let STMTS = [];
 exports.STMTS = STMTS;
+function mapBySourcePosition(leftParts, rightParts) {
+    let result = leftParts.sort((a, b) => {
+        return a.sourceInterval.a < b.sourceInterval.a ? 1
+            : a.sourceInterval.a === b.sourceInterval.a ? 0
+                : -1;
+    }).map(_ => [_]); // Here we reverse the test to avoid calling reverse after the sort
+    rightParts.forEach(_ => {
+        let found = false;
+        result.forEach(__ => {
+            if (!found && _.sourceInterval.a >= __[0].sourceInterval.b) {
+                __.push(_);
+                found = true;
+            }
+        });
+    });
+    return result;
+}
 function format(text, size, center) {
     text = text.trim();
     let d = size - text.length;
@@ -131,10 +148,10 @@ class Visitor {
         let logFiles = [];
         ctx.database_file_spec().forEach(fs => {
             if (logInterval && fs.sourceInterval.a > logInterval) {
-                logFiles.push(fs);
+                logFiles.push(this.visitDatabase_file_spec(fs));
             }
             else {
-                onFiles.push(fs);
+                onFiles.push(this.visitDatabase_file_spec(fs));
             }
         });
         const collate = this.visitId(ctx._collation_name);
@@ -207,6 +224,54 @@ class Visitor {
         });
         return exps;
     }
+    visitDatabase_file_spec(ctx) {
+        if (checked(ctx, ctx.file_group)) {
+            return this.visitFile_group(ctx.file_group());
+        }
+        if (checked(ctx, ctx.file_spec)) {
+            return this.visitFile_spec(ctx.file_spec());
+        }
+    }
+    visitFile_group(ctx) {
+        const id = this.visitId(ctx.id());
+        const filestream = checked(ctx, ctx.FILESTREAM);
+        const _default = checked(ctx, ctx.DEFAULT);
+        const memoryOptimizedData = checked(ctx, ctx.MEMORY_OPTIMIZED_DATA);
+        let fileSpecs = (checked(ctx, ctx.file_spec())
+            && ctx.file_spec().map(_ => this.visitFile_spec(_)))
+            || [];
+        return {
+            id,
+            filestream,
+            _default,
+            memoryOptimizedData,
+            fileSpecs
+        };
+    }
+    visitFile_spec(ctx) {
+        let name = "";
+        let filename = "";
+        if (checked(ctx, ctx.id())) {
+            name = this.visitId(ctx.id());
+        }
+        if (checked(ctx, ctx.STRING)) {
+            ctx.STRING().forEach(_ => {
+                if (_.sourceInterval.a > ctx.FILENAME().sourceInterval.b) {
+                    filename = _.text;
+                }
+                else {
+                    name = _.text;
+                }
+            });
+        }
+        let tabSize = [];
+        checked(ctx, ctx.SIZE) && (tabSize.push(ctx.SIZE()));
+        checked(ctx, ctx.MAXSIZE) && (tabSize.push(ctx.MAXSIZE()));
+        checked(ctx, ctx.FILEGROWTH) && (tabSize.push(ctx.FILEGROWTH()));
+        if (tabSize.length > 0) {
+            const result = mapBySourcePosition(tabSize, ctx.file_size());
+        }
+    }
     visitFull_table_name(ctx) {
         log("visitFull_table_name");
         const tableDef = {
@@ -269,6 +334,17 @@ class Visitor {
             return ctx.SQUARE_BRACKET_ID().text;
         }
         return ctx.text;
+    }
+    visitFile_size(ctx) {
+        let unit = checked(ctx, ctx.KB) && ctx.KB().text;
+        checked(ctx, ctx.MB) && (unit = ctx.MB().text);
+        checked(ctx, ctx.GB) && (unit = ctx.GB().text);
+        checked(ctx, ctx.TB) && (unit = ctx.TB().text);
+        ctx.text.indexOf("%") > -1 && (unit = "%");
+        return {
+            decimal: ctx.DECIMAL().text,
+            unit
+        };
     }
     constructor(parser) {
         this.parser = parser;
